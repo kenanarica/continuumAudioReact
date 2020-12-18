@@ -1,8 +1,4 @@
-
-const { useState } = React;
-const { render } = ReactDOM;
-const e = React.createElement;
-
+import React from 'react';
 
 /*
 Structure:
@@ -10,9 +6,24 @@ Structure:
     WARecorder returns a download link. Was originally going to be an audio element too, but that's not necessary. 
 */
 
-//global variables for the startRecording function. stream_copy is completely necessary, but I'm not sure that rec_obj needs to be global.  
+// global variables for the startRecording function.
+// stream_copy is completely necessary, but I'm not sure that rec_obj needs to be global.  
 var stream_copy;
 var rec_obj;
+
+function ListRecordings(props) {
+  const listOfLinks = props.listOfLinks;
+
+  if (listOfLinks.length > 0) { 
+      const sublist  = listOfLinks.map((elt, i) => <li key={i}> {listOfLinks[i]} </li>);
+      // return it
+      return <div> <h1> Links: </h1> {sublist} </div>;
+  } else {
+      // Otherwise, give them a notice about it
+      return <h1>Links to audio will appear here</h1>;
+  }
+}
+
 
 class WARecorder extends React.Component { 
     
@@ -57,19 +68,16 @@ class WARecorder extends React.Component {
     } //enf of WARecorder constructor
 
     // render out our links from an array of link objects
-    renderLinks(listOfLinks) { 
-        
-        //go through every link if they exist
-        if(listOfLinks.length > 0) { 
+    renderLinks(listOfLinks) {
+        // go through every link if they exist
+        if (listOfLinks.length > 0) { 
             var sublist = new Array();
-
-            for(var i = 0; i < listOfLinks.length; i++) { 
-                
-                //give them their own little div
+            for (var i = 0; i < listOfLinks.length; i++) {
+                // give them their own little div
                 var linkobj = <li key={i}> 
                     {listOfLinks[i]}
                 </li>
-                //push it
+                // push it
                 sublist.push(linkobj);
 
             }
@@ -77,68 +85,61 @@ class WARecorder extends React.Component {
             return <div> 
                 <h1> Links: </h1>
                 {sublist} 
-                </div>
+            </div>;
 
         } else {
-            //Otherwise, give them a notice about it
-            return <div> 
-                    <h1> Links to audio will appear here when they're done! </h1>
-                 </div>
+            // Otherwise, give them a notice about it
+            return <h1>Links to audio will appear here</h1>;
         }
 
     }
     
     //THIS IS LUC'S CODE, I DID NOT WRITE IT. THANK YOU LUC <3 
-       niceDate = () => {
-        function pad(number) {
-          if (number < 10) {
-            return '0' + number;
-          }
-          return number;
+    niceDate() {
+      function pad(number) {
+        if (number < 10) {
+          return '0' + number;
         }
-        let aDate = new Date();
-        return aDate.getFullYear() +
-            '-' + pad(aDate.getMonth() + 1) +
-            '-' + pad(aDate.getDate()) +
-            ' ' + pad(aDate.getHours()) +
-            ':' + pad(aDate.getMinutes()) +
-            ':' + pad(aDate.getSeconds())
+        return number;
       }
-
-
-    createLinkDiv(blob, index) { 
-      
-      //generate a download link and name for our blob
-      var url = URL.createObjectURL(blob);
-      
-      var fname = index + "-" + this.niceDate() + ".mp3";
-
-      return <a href={url} download = {fname}> {fname} </a>;
-    
+      let aDate = new Date();
+      return aDate.getFullYear() +
+          '-' + pad(aDate.getMonth() + 1) +
+          '-' + pad(aDate.getDate()) +
+          ' ' + pad(aDate.getHours()) +
+          ':' + pad(aDate.getMinutes()) +
+          ':' + pad(aDate.getSeconds())
     }
 
-    //startRecording was changed to an arrow function because the default 'function' method wouldn't include any kind of scope.
-    //Ex. I couldn't call setState, use state variables, or renderLinks()
-      startRecording = () => {
 
-        //Request access to record w/ mic
+    createLinkDiv(blob, index) {
+      // generate a download link and name for our blob
+      var url = URL.createObjectURL(blob);
+      var fname = index + "-" + this.niceDate() + ".mp3";
+      return <a href={url} download = {fname}> {fname} </a>;
+    }
+
+    // startRecording was changed to an arrow function because the default 'function' method wouldn't
+    // include any kind of scope.
+    // Ex. I couldn't call setState, use state variables, or renderLinks()
+    startRecording() {
+        // Request access to record w/mic
         navigator.mediaDevices.getUserMedia( {audio : true, video : false } ).then(stream =>  { 
           console.log(this.state.recording);
-          //Make our stream copy
+          // Make our stream copy
           stream_copy = stream;
 
-          //audioContext now declared inside getUserMedia :)
+          // audioContext now declared inside getUserMedia :)
           var audioContext = new AudioContext;
       
           var input = audioContext.createMediaStreamSource(stream);
-          input.connect(audioContext.destination)
             
-          //I hard-coded mp3, but it can use .ogg as well. 
+          // I hard-coded mp3, but it can use .ogg as well. 
           rec_obj = new WebAudioRecorder(input, {
             workerDir    : "javascripts/",
             encoding     : "mp3",
             
-            //Diagnostic event listeners
+            // Diagnostic event listeners
             onEncoderLoading: function(rec_obj, encoding) {
               // show "loading encoder..." display 
               console.log("Loading " + encoding + " encoder...");
@@ -152,81 +153,57 @@ class WARecorder extends React.Component {
           } ); //end constructor for rec_obj
           
           rec_obj.onComplete = (rec_obj, blob) => {
-
             console.log("onComplete called");
-            
-            //Create our download link
-            
-            
-            
+            // Create our download link
             var newListOfDownloads = this.state.downloads;
             var linkToPush = this.createLinkDiv(blob, newListOfDownloads.length);
-
             newListOfDownloads.push(linkToPush);
-            
             this.setState({
               recording : false,
               downloads : newListOfDownloads
-            
             })
-
           }
       
-          //
+          // 20 minute max recording, hard coded mp3 available.
+          // ogg can be swapped with mp3 in the rec_obj constructor json above.
           rec_obj.setOptions({
-            
-            //20 minute max recording, hard coded mp3 available. ogg can be swapped with mp3 in the rec_obj constructor json above.
-
             timeLimit: 1200,
             encodeAfterRecord: true, 
             ogg: {
-                quality: 0.5
+                quality: 0.75
             },
             mp3: {
-                bitRate: 160
+                bitRate: 192
             }
           });
+
           rec_obj.startRecording()
-      
           startButton.disabled = true;
-          
         }) //end getUserMedia()
         
       } // end startRecording()
 
-        stopRecording() { 
-
-        //stop our stream
-        stream_copy.getAudioTracks()[0].stop()
-        //call our recorder's stop function
-        rec_obj.finishRecording()
-      
-      } //end stopRecording()
-
-  
-    render() { 
-  
-        //If we're recording, disable the start button.
-        //This could have been done in the startButton onClick listener, but I think it's cool to do it statewise.
-
-        if(this.state.recording) { 
-
-            var label = document.getElementById("statusLabel").innerHTML = 'Recording.';
-            document.getElementById("startButton").disabled = true;
-        
+      stopRecording() { 
+        // stop our stream
+        if (stream_copy) {
+          stream_copy.getAudioTracks()[0].stop()
         }
+        // call our recorder's stop function
+        if (rec_obj) {
+          rec_obj.finishRecording()
+        }
+      }
 
-        
-            var masterList = <div> 
-                <h1> Here's where stuff is gonna go </h1>
-                </div>
+  
+    render() {
+      // If we're recording, disable the start button.
+      // This could have been done in the startButton onClick listener, but I think it's cool to do it statewise.
+      if (this.state.recording) { 
+          var label = document.getElementById("statusLabel").innerHTML = 'Recording.';
+          document.getElementById("startButton").disabled = true;
+      }
+      return <ListRecordings listOfLinks={this.state.downloads} />;
+    }
+}
 
-            return this.renderLinks(this.state.downloads);
-
-    } //end of render
-
-} //end of WARecorder component
-
-
-const domContainer = document.querySelector('#recorder_container');
-ReactDOM.render(e(WARecorder), domContainer);
+export default WARecorder;
